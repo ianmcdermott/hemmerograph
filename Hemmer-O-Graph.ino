@@ -48,12 +48,29 @@ Adafruit_StepperMotor *myStepper2 = AFMStop.getStepper(200, 2);
 
 const int OUTPUT_TYPE = SERIAL_PLOTTER;
 
-const int PULSE_INPUT = A0;
+const int PULSE_INPUT = 0;
 const int PULSE_BLINK = 13;    // Pin 13 is the on-board LED
 const int PULSE_FADE = 5;
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
-
+int rotateDelay = 25;
 float pulseVal;
+
+bool pulseMode = true;
+bool drawingMode = false;
+bool bpmIndex = false;
+
+long newBpm0, newBpm1;
+// LED INDICATORS ///
+
+const int RED4 = 13;          // The on-board Arduino LED, close to PIN 13.
+const int RED3 = 11;
+const int RED2 = 9;
+const int RED1 = 7;
+
+const int GREEN4 = 12;          // The on-board Arduino LED, close to PIN 13.
+const int GREEN3 = 10;
+const int GREEN2 = 8;
+const int GREEN1 = 6;
 
 // you can change these to DOUBLE or INTERLEAVE or MICROSTEP!
 // wrappers for the first motor!
@@ -71,7 +88,7 @@ void backwardstep2() {
   myStepper2->onestep(BACKWARD, DOUBLE);
 }
 
-bool bpmIndex = false;
+bool i = false;
 
 int bpm0 ;
 int bpm1 ;
@@ -85,11 +102,11 @@ void setup()
   Serial.begin(115200);
   // Configure the PulseSensor manager.
   pulseSensor.analogInput(PULSE_INPUT);
-  pulseSensor.blinkOnPulse(PULSE_BLINK);
-  pulseSensor.fadeOnPulse(PULSE_FADE);
+  //  pulseSensor.blinkOnPulse(PULSE_BLINK);
+  //  pulseSensor.fadeOnPulse(PULSE_FADE);
 
-  pulseSensor.setSerial(Serial);
-  pulseSensor.setOutputType(OUTPUT_TYPE);
+  //  pulseSensor.setSerial(Serial);
+  //  pulseSensor.setOutputType(OUTPUT_TYPE);
   pulseSensor.setThreshold(THRESHOLD);
 
   // Now that everything is ready, start reading the PulseSensor signal.
@@ -113,66 +130,105 @@ void setup()
 
   AFMSbot.begin(); // Start the bottom shield
   AFMStop.begin(); // Start the top shield
-  int bpm0 = 200;
-  int bpm1 = 10;
+  int bpm0 = 0;
+  int bpm1 = 0;
   //get least common multiple of bpms to calculate moveto
   lcm = getLCM(bpm0, bpm1);
 
   bpm0 *= 200 * 60;
 
   bpm1 *= 200 * 60;
-  stepper1.setMaxSpeed(bpm0 );
-  stepper1.setAcceleration(20);
-  stepper1.moveTo(lcm * 200 / 6);
+    stepper1.setMaxSpeed(600000);
+    stepper1.setAcceleration(60);
+  stepper1.moveTo(100000);
   delay(5);
   //set max speed to bpm since speed is set to rpm
-  stepper2.setMaxSpeed(bpm1 * 20 );
-  stepper2.setAcceleration(20);
+  //  stepper2.setMaxSpeed(bpm1);
+  //  stepper2.setAcceleration(20);
   stepper2.moveTo(lcm * 200 / 6);
   //  updateRPM();
+  newBpm0 = 1176000;
 
-  
+  // LED INDICATORS ///
+  pinMode(RED4, OUTPUT);
+  pinMode(GREEN3, OUTPUT);
+  pinMode(RED2, OUTPUT);
+  pinMode(RED1, OUTPUT);
+
+  pinMode(GREEN4, OUTPUT);
+  pinMode(GREEN3, OUTPUT);
+  pinMode(GREEN2, OUTPUT);
+  pinMode(GREEN1, OUTPUT);
+
 }
 
 void loop()
 {
 
-  digitalWrite(PULSE_BLINK, LOW);
-  delay(50);
-  digitalWrite(PULSE_BLINK, HIGH);
-  delay(50);
+  //  digitalWrite(PULSE_BLINK, LOW);
+  //  delay(50);
+  //  digitalWrite(PULSE_BLINK, HIGH);
 
-  bpm0 = pulseSensor.getBeatsPerMinute();  // Calls function on our pulseSensor object that returns BPM as an "int".
-  bpm0 *= 200 * 60;
 
-  bpm1 *= 200 * 60;                                            // "myBPM" hold this BPM value now.
-  delay(20);
+  //  delay(50);
+
+  //  Serial.print("BPM0: ");
+  //
+  //  Serial.println( bpm0);
+
+  Serial.print("BPM0: ");
+
+  Serial.println( newBpm0);
+  //  bpm1 *= 200 * 60;
+  //  // "myBPM" hold this BPM value now.
+    stepper1.setSpeed(3000 );
+
+
+
+  //  delay(20);
   pulseSensor.outputSample();
   pulseVal = pulseSensor.getLatestSample();
   // Reset the current position to 0 to start a new drawing
-  if (stepper1.distanceToGo() == 0)
-    stepper1.setCurrentPosition(0);
+  if (drawingMode) {
+//    stepper1.setAcceleration(60 / 10);
+    //    stepper1.setSpeed(11760);
+    if (stepper1.distanceToGo() == 0)
+      stepper1.setCurrentPosition(0);
 
-  if (stepper2.distanceToGo() == 0)
-    stepper2.setCurrentPosition(0);
-  // updateRPM();
-  stepper1.run();
-  stepper2.run();
+    if (stepper2.distanceToGo() == 0)
+      stepper2.setCurrentPosition(0);
+//    Serial.print("RUnning");
+    stepper1.run();
+    stepper2.run();
 
- 
+    //  delay(20);
+  }
+  if (pulseMode) {
+    if (!bpmIndex) {
+      bpm0 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
+    } else {
+      bpm1 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
+    }
+    newBpm0 = bpm0 * 12000L;
 
+    updateRPM();
+    rotatePulse();
+    displayBPM(123);
+  }
 }
 
 void updateRPM() {
 
-  stepper1.setMaxSpeed(bpm0 );
-  stepper1.setAcceleration(20);
+  stepper1.setSpeed(newBpm0 );
+  stepper1.setAcceleration(newBpm0 / 10);
   stepper1.moveTo(lcm * 200 / 6);
   delay(5);
   //set max speed to bpm since speed is set to rpm
-  stepper2.setMaxSpeed(bpm1 * 20 );
+  stepper2.setSpeed(bpm1 * 20 );
   stepper2.setAcceleration(20);
   stepper2.moveTo(lcm * 200 / 6);
+  
+  delay(5);
 }
 
 int getLCM(int n1, int n2)
@@ -209,14 +265,116 @@ int getLCM(int n1, int n2)
   |                                      |
   ________________________________________
 */
-void displayBPM() {
+void displayBPM(int currentBPM) {
+  String BPMString = String(currentBPM);
+  if (BPMString.length() == 3) {
+    int currentNum = int(BPMString.charAt(0));
+    display100s(currentNum, 3);
+  } else if (BPMString.length() == 2) {
+
+
+
+  } else if (BPMString.length() == 1) {
+
+  }
 }
+
+void display100s(int ledNumber, int decimalPlace) {
+  for (int i = 0; i < 10; i++) {
+    if (i = ledNumber) {
+      for (int i = 0; i < 5; i++) {
+        if (decimalPlace = 3) {
+          if (i % 2 == 0) {
+            digitalWrite(GREEN4, HIGH);
+            delay(50);
+            digitalWrite(GREEN4, LOW);
+            delay(50);
+          } else {
+            digitalWrite(ledNumber, HIGH);
+            delay(50);
+            digitalWrite(ledNumber, LOW);
+            delay(50);
+          }
+        }
+      }
+    } else {
+      if (i % 2 == 0) {
+        digitalWrite(i, HIGH);
+        delay(50);
+        digitalWrite(i, LOW);
+        delay(50);
+      } else {
+        digitalWrite(i, HIGH);
+        delay(50);
+        digitalWrite(i, LOW);
+        delay(50);
+      }
+    }
+  }
+
+  delay(5000);
+}
+
+
 
 void displayPulse(bool bpm) {
 }
 
-void rotatePulse(bool bpm) {
-
+void rotatePulse() {
+  //  delay(20);
+  if (pulseSensor.isInsideBeat()) {
+    digitalWrite(GREEN4, HIGH);
+    delay(rotateDelay);
+    digitalWrite(RED4, HIGH);
+    digitalWrite(GREEN3, HIGH);
+    delay(rotateDelay);
+    digitalWrite(RED3, HIGH);
+    digitalWrite(GREEN4, LOW);
+    delay(rotateDelay);
+    digitalWrite(GREEN2, HIGH);
+    digitalWrite(RED4, LOW);
+    delay(rotateDelay);
+    digitalWrite(RED2, HIGH);
+    digitalWrite(GREEN3, LOW);
+    delay(rotateDelay);
+    digitalWrite(RED3, LOW);
+    digitalWrite(GREEN1, HIGH);
+    delay(rotateDelay);
+    digitalWrite(RED1, HIGH);
+    digitalWrite(GREEN2, LOW);
+    delay(rotateDelay);
+    digitalWrite(RED2, LOW);
+    digitalWrite(GREEN1, LOW);
+    delay(rotateDelay);
+    digitalWrite(RED1, LOW);
+    delay(rotateDelay);
+  }
 }
 
+/*    digitalWrite(GREEN4, HIGH);
+    delay(25);
+    digitalWrite(LED12, HIGH);
+    digitalWrite(GREEN3, HIGH);
+    delay(25);
+    digitalWrite(GREEN4, LOW);
+    delay(25);
+    digitalWrite(LED12, LOW);
+    digitalWrite(RED3,HIGH);
+    digitalWrite(GREEN2, HIGH);
+    delay(25);
+    digitalWrite(GREEN3, LOW);
+    delay(25);
+    digitalWrite(RED3, LOW);
+    digitalWrite(RED2, HIGH);
+    digitalWrite(GREEN1, HIGH);
+    delay(25);
+    digitalWrite(GREEN2, LOW);
+    delay(25);
+    digitalWrite(RED2, HIGH);
+    digitalWrite(GREEN1, LOW);
+    delay(25);
 
+    digitalWrite(RED1, HIGH);
+    digitalWrite(RED2, LOW);
+    delay(25);
+    digitalWrite(RED1, LOW);*/
