@@ -38,7 +38,7 @@ PulseSensorPlayground pulseSensor;
 
 int lcm;
 
-Adafruit_MotorShield AFMSbot(0x61); // Rightmost jumper closed
+//Adafruit_MotorShield AFMSbot(0x61); // Rightmost jumper closed
 Adafruit_MotorShield AFMStop(0x60); // Default address, no jumpers
 
 // Connect two steppers with 200 steps per revolution (1.8 degree)
@@ -54,6 +54,9 @@ const int PULSE_FADE = 5;
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
 int rotateDelay = 25;
 float pulseVal;
+
+const int MODE_SWITCH = 2;
+const int PERSON_SWITCH = 3;
 
 bool pulseMode = true;
 bool drawingMode = false;
@@ -119,6 +122,9 @@ void setup()
        If your Sketch hangs here, try changing USE_ARDUINO_INTERRUPTS to false.
        which doesn't use interrupts.
     */
+
+    pinMode(MODE_SWITCH, INPUT);
+
     for (;;) {
       // Flash the led to show things didn't work.
       digitalWrite(PULSE_BLINK, LOW);
@@ -128,7 +134,7 @@ void setup()
     }
   }
 
-  AFMSbot.begin(); // Start the bottom shield
+//  AFMSbot.begin(); // Start the bottom shield
   AFMStop.begin(); // Start the top shield
   int bpm0 = 0;
   int bpm1 = 0;
@@ -138,8 +144,8 @@ void setup()
   bpm0 *= 200 * 60;
 
   bpm1 *= 200 * 60;
-    stepper1.setMaxSpeed(600000);
-    stepper1.setAcceleration(60);
+  stepper1.setMaxSpeed(600000);
+  stepper1.setAcceleration(60);
   stepper1.moveTo(100000);
   delay(5);
   //set max speed to bpm since speed is set to rpm
@@ -174,14 +180,13 @@ void loop()
 
   //  Serial.print("BPM0: ");
   //
-  //  Serial.println( bpm0);
 
-  Serial.print("BPM0: ");
-
-  Serial.println( newBpm0);
+  //  Serial.print("BPM0: ");
+  //
+  //  Serial.println( newBpm0);
   //  bpm1 *= 200 * 60;
   //  // "myBPM" hold this BPM value now.
-    stepper1.setSpeed(3000 );
+//  stepper1.setSpeed(3000 );
 
 
 
@@ -189,20 +194,13 @@ void loop()
   pulseSensor.outputSample();
   pulseVal = pulseSensor.getLatestSample();
   // Reset the current position to 0 to start a new drawing
+  // Check if we're in Pulse Mode or Drawing Mode
+  checkMode();
+  checkPerson();
   if (drawingMode) {
-//    stepper1.setAcceleration(60 / 10);
-    //    stepper1.setSpeed(11760);
-    if (stepper1.distanceToGo() == 0)
-      stepper1.setCurrentPosition(0);
-
-    if (stepper2.distanceToGo() == 0)
-      stepper2.setCurrentPosition(0);
-//    Serial.print("RUnning");
-    stepper1.run();
-    stepper2.run();
-
-    //  delay(20);
+    drawImage();
   }
+
   if (pulseMode) {
     if (!bpmIndex) {
       bpm0 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
@@ -217,6 +215,22 @@ void loop()
   }
 }
 
+void drawImage() {
+  //    stepper1.setAcceleration(60 / 10);
+  //    stepper1.setSpeed(11760);
+  if (stepper1.distanceToGo() == 0)
+    stepper1.setCurrentPosition(0);
+
+  if (stepper2.distanceToGo() == 0)
+    stepper2.setCurrentPosition(0);
+  //    Serial.print("RUnning");
+  stepper1.run();
+  stepper2.run();
+
+  //  delay(20);
+
+}
+
 void updateRPM() {
 
   stepper1.setSpeed(newBpm0 );
@@ -227,7 +241,7 @@ void updateRPM() {
   stepper2.setSpeed(bpm1 * 20 );
   stepper2.setAcceleration(20);
   stepper2.moveTo(lcm * 200 / 6);
-  
+
   delay(5);
 }
 
@@ -278,6 +292,31 @@ void displayBPM(int currentBPM) {
 
   }
 }
+
+void  checkMode() {
+  //if the input is receiving voltage, mark as pulse mode
+  if (digitalRead(MODE_SWITCH) == 0) {
+    pulseMode = true;
+    drawingMode = false;
+    Serial.println("Pulse Mode Activated");
+  } else {
+    pulseMode = false;
+    drawingMode = true;
+    Serial.println("Drawing Mode Activated");
+  }
+}
+
+void  checkPerson() {
+  //if the input is receiving voltage, mark as pulse mode
+  if (digitalRead(PERSON_SWITCH) == 0) {
+    bpmIndex = false;
+    Serial.println("Person 1");
+  } else {
+    bpmIndex = true;
+    Serial.println("Person 2");
+  }
+}
+
 
 void display100s(int ledNumber, int decimalPlace) {
   for (int i = 0; i < 10; i++) {
