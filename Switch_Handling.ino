@@ -37,31 +37,15 @@ void reset() {
 void checkMode() {
   //if the input is receiving voltage, mark as pulse mode
   if (digitalRead(MODE_SWITCH)) {
-//    previousPulseMode1 = true;
-    //    if (!previousDrawingMode1) {
-    pulseModeCount++;
-    if (pulseModeCount > 10) {
       pulseMode = true;
       drawingMode = false;
-      previousDrawingMode2 = false;
-      //      }
-      pulseModeCount = 0;
-    }
-    previousDrawingMode1 = false;
-  } else if (digitalRead(!MODE_SWITCH) && digitalRead(PERSON_SWITCH_1_INPUT) && digitalRead(PERSON_SWITCH_2_INPUT)) {
+    } else if (digitalRead(!MODE_SWITCH) && digitalRead(PERSON_SWITCH_1_INPUT) && digitalRead(PERSON_SWITCH_2_INPUT)) {
     pulseMode = false;
     drawingMode = true;
-    previousDrawingMode1 = true;
-    if (previousPulseMode1) {
-      previousDrawingMode2 = false;
-    }
   }
-
-
+}
 
   //if Person 1 is active, show live BPM
   //  if(!bpmIndex) showLiveBPM(person1)
-}
-
 // If mode_switch is false but person 1 & 2 switches are true, drawing mode on
 

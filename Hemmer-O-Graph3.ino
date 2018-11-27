@@ -39,10 +39,12 @@ Adafruit_StepperMotor *myStepper2 = AFMStop.getStepper(200, 2);
 
 const int OUTPUT_TYPE = SERIAL_PLOTTER;
 
+//Pulse sensor variables
 const int PULSE_INPUT = 0;
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
 int rotateDelay = 25;
 float pulseVal;
+bool hitBeat;
 
 const int MODE_SWITCH = 2;
 const int PERSON_SWITCH_1 = 3;
@@ -59,7 +61,7 @@ bool previousPulseMode1 = false;
 bool     previousMode = false;
 long newBpm0, newBpm1;
 // LED INDICATORS ///
-
+unsigned long currentMillis;
 
 int pulseModeCount = 0;
 
@@ -96,7 +98,7 @@ AccelStepper stepper2(forwardstep2, backwardstep2);
 
 // variables to allow leds to blink without delays
 unsigned long previousMillis = 0;
-const long interval = 100;
+const long interval = 10;
 int blinkCount = 0;
 
 void setup()
@@ -171,6 +173,7 @@ void setup()
 
 void loop()
 {
+  //  Serial.println(digitalRead(PERSON_SWITCH_1_INPUT));
   if (pulseMode) {
     Serial.println("Pulse Mode Activated");
   }  else {
@@ -192,50 +195,75 @@ void loop()
   //  bpm1 *= 200 * 60;
   //  // "myBPM" hold this BPM value now.
   //  stepper1.setSpeed(3000 );
-  unsigned long currentMillis = millis();
+  currentMillis = millis();
 
+  //  if (currentMillis - previousMillis >= interval) {
+  //    // save the last time you blinked the LED
+  //    previousMillis = currentMillis;
+  //    blinkCount++;
+  //    if (blinkCount > LED_COUNT) {
+  //      blinkCount = 0;
+  //    }
+  //  }
+  //  //  for ( int l = 0; l < LED_COUNT; l++ ) {
+  //
+  //  turnOn(blinkCount);
+  //      delay( 1000 / LED_COUNT );
+  //  }
+
+  digitalWrite(PERSON_SWITCH_1, HIGH);
+
+  digitalWrite(PERSON_SWITCH_2, HIGH);
+
+  //  delay(20);
+  pulseSensor.outputSample();
+  pulseVal = pulseSensor.getLatestSample();
+  // Reset the current position to 0 to start a new drawing
+  // Check if we're in Pulse Mode or Drawing Mode
+  checkMode();
+  checkPerson();
+  if (drawingMode) {
+    Serial.println("Draw Mode Activated");
+    drawImage();
+  }
+
+  if (pulseMode) {
+    if (!bpmIndex) {
+      if (pulseSensor.sawStartOfBeat() || hitBeat) {
+        pulseSensor.outputBeat();
+        detectBeat(0, 8);
+        hitBeat = false;
+      }
+      bpm0 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
+    } else {
+      bpm1 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
+    }
+    newBpm0 = bpm0 * 12000L * 2;
+
+    //      updateRPM();
+    //    rotatePulse();
+    //    displayBPM(123);
+  }
+}
+
+void detectBeat(int minimum, int maximum) {
   if (currentMillis - previousMillis >= interval) {
     // save the last time you blinked the LED
     previousMillis = currentMillis;
     blinkCount++;
-    if(blinkCount > LED_COUNT){
+    turnOn(blinkCount);
+    if (blinkCount > maximum) {
       blinkCount = 0;
+      hitBeat = false;
+      return;
+    } else {
+//      detectBeat( minimum + 1, maximum);
+      return;
+
     }
   }
-//  for ( int l = 0; l < LED_COUNT; l++ ) {
 
-    turnOn(blinkCount);
-    //      delay( 1000 / LED_COUNT );
-//  }
 
-    digitalWrite(PERSON_SWITCH_1, HIGH);
-  
-    digitalWrite(PERSON_SWITCH_2, HIGH);
-
-  //  delay(20);
-    pulseSensor.outputSample();
-    pulseVal = pulseSensor.getLatestSample();
-    // Reset the current position to 0 to start a new drawing
-    // Check if we're in Pulse Mode or Drawing Mode
-    checkMode();
-    checkPerson();
-    if (drawingMode) {
-  Serial.println("Draw Mode Activated");
-  drawImage();
-    }
-
-    if (pulseMode) {
-      if (!bpmIndex) {
-        bpm0 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
-      } else {
-        bpm1 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
-      }
-      newBpm0 = bpm0 * 12000L *2;
-  
-//      updateRPM();
-      //    rotatePulse();
-      //    displayBPM(123);
-    }
 }
 
 void drawImage() {
@@ -290,12 +318,12 @@ int getLCM(int n1, int n2)
 
 void  checkPerson() {
   //if the input is receiving voltage, mark as pulse mode
-  if (digitalRead(PERSON_SWITCH_1) == 0) {
+  if (digitalRead(PERSON_SWITCH_1_INPUT) == 0) {
     bpmIndex = false;
-    //    Serial.println("Person 1");
+    //        Serial.println("Person 1");
   } else {
     bpmIndex = true;
-    //    Serial.println("Person 2");
+    //        Serial.println("Person 2");
   }
 }
 
