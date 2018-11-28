@@ -53,3 +53,17 @@ void turnOn( int led ) {
   digitalWrite( E, matrix[led][PIN_STATE][4] );
 }
 
+void turnOff( int led ) {
+  // set all the pin modes
+  pinMode( A, matrix[led][PIN_CONFIG][0] );
+  pinMode( B, matrix[led][PIN_CONFIG][1] );
+  pinMode( C, matrix[led][PIN_CONFIG][2] );
+  pinMode( D, matrix[led][PIN_CONFIG][3] );
+  pinMode( E, matrix[led][PIN_CONFIG][4] );
+  // set all the pin states
+  digitalWrite( A, matrix[led][LOW][0] );
+  digitalWrite( B, matrix[led][LOW][1] );
+  digitalWrite( C, matrix[led][LOW][2] );
+  digitalWrite( D, matrix[led][LOW][3] );
+  digitalWrite( E, matrix[led][LOW][4] );
+}

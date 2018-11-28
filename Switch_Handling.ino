@@ -45,7 +45,12 @@ void checkMode() {
   }
 }
 
-  //if Person 1 is active, show live BPM
-  //  if(!bpmIndex) showLiveBPM(person1)
-// If mode_switch is false but person 1 & 2 switches are true, drawing mode on
+void checkPerson() {
+  //if the input is receiving voltage, mark as pulse mode
+  if (digitalRead(PERSON_SWITCH_1_INPUT) == 0) {
+    bpmIndex = false; // Serial.println("Person 1");
+  } else {
+    bpmIndex = true;  // Serial.println("Person 2");
+  }
+}
 

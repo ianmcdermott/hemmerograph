@@ -40,11 +40,11 @@ Adafruit_StepperMotor *myStepper2 = AFMStop.getStepper(200, 2);
 const int OUTPUT_TYPE = SERIAL_PLOTTER;
 
 //Pulse sensor variables
-const int PULSE_INPUT = 0;
+const int PULSE_INPUT = A0;
 const int THRESHOLD = 550;   // Adjust this number to avoid noise when idle
 int rotateDelay = 25;
 float pulseVal;
-bool hitBeat;
+bool hitBeat1;
 
 const int MODE_SWITCH = 2;
 const int PERSON_SWITCH_1 = 3;
@@ -70,6 +70,8 @@ const int PWM2 = 6;
 const int PWM3 = 9;
 const int PWM4 = 10;
 const int PWM5 = 11;
+
+long unsigned int lockedBeat1, lockedBeat2;
 
 // you can change these to DOUBLE or INTERLEAVE or MICROSTEP!
 // wrappers for the first motor!
@@ -98,38 +100,17 @@ AccelStepper stepper2(forwardstep2, backwardstep2);
 
 // variables to allow leds to blink without delays
 unsigned long previousMillis = 0;
-const long interval = 10;
+unsigned long previousMillisL1 = 0;
+unsigned long previousMillisL2 = 0;
+
+const long interval = 50;
 int blinkCount = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  // Configure the PulseSensor manager.
-  pulseSensor.analogInput(PULSE_INPUT);
+  checkMode();
 
-  //  pulseSensor.setOutputType(OUTPUT_TYPE);
-  pulseSensor.setThreshold(THRESHOLD);
-
-  // Now that everything is ready, start reading the PulseSensor signal.
-  if (!pulseSensor.begin()) {
-    /*
-       PulseSensor initialization failed,
-       likely because our particular Arduino platform interrupts
-       aren't supported yet.
-
-       If your Sketch hangs here, try changing USE_ARDUINO_INTERRUPTS to false.
-       which doesn't use interrupts.
-    */
-    for (;;) {
-      //      // Flash the led to show things didn't work.
-      //      digitalWrite(PULSE_BLINK, LOW);
-      //      delay(50);
-      //      digitalWrite(PULSE_BLINK, HIGH);
-      //      delay(50);
-    }
-    checkMode();
-
-  }
   pinMode(MODE_SWITCH, INPUT);
   pinMode(PERSON_SWITCH_1, OUTPUT);
   pinMode(PERSON_SWITCH_1_INPUT, INPUT);
@@ -145,161 +126,156 @@ void setup()
   newBpm1 = bpm1 * 200L * 60L;
   lcm = getLCM(bpm0, bpm1);
 
-  Serial.print("BPM 0: "); Serial.println(newBpm0);
-  Serial.print("BPM 1: "); Serial.println(newBpm1);
-
   stepper1.setMaxSpeed(newBpm0);
   stepper1.setAcceleration(newBpm0);
   stepper1.moveTo(50000);
   delay(5);
-  //set max speed to bpm since speed is set to rpm
-  //  stepper2.setMaxSpeed(bpm1);
-  //  stepper2.setAcceleration(20);
+
 
   stepper2.setMaxSpeed(newBpm1);
   stepper2.setAcceleration(newBpm1);
   stepper2.moveTo(50000 );
-  //  updateRPM();
 
-  //    stepper1.setMaxSpeed(100.0);
-  //  stepper1.setAcceleration(100.0);
-  //  stepper1.moveTo(24);
-  //
-  //  stepper2.setMaxSpeed(200.0);
-  //  stepper2.setAcceleration(100.0);
-  //  stepper2.moveTo(50000);
 
-}
+  // Configure the PulseSensor manager.
+  pulseSensor.analogInput(PULSE_INPUT);
+  pulseSensor.setSerial(Serial);
+  pulseSensor.setOutputType(OUTPUT_TYPE);
+  pulseSensor.setThreshold(THRESHOLD);
 
-void loop()
-{
-  //  Serial.println(digitalRead(PERSON_SWITCH_1_INPUT));
-  if (pulseMode) {
-    Serial.println("Pulse Mode Activated");
-  }  else {
+
+  if (!pulseSensor.begin()) {
+    /*
+       PulseSensor initialization failed,
+       likely because our particular Arduino platform interrupts
+       aren't supported yet.
+
+       If your Sketch hangs here, try PulseSensor_BPM_Alternative.ino,
+       which doesn't use interrupts.
+    */
+    for (;;) {
+      //      // Flash the led to show things didn't work.
+      //      digitalWrite(PULSE_BLINK, LOW);
+      //      delay(50);
+      //      digitalWrite(PULSE_BLINK, HIGH);
+      //      delay(50);
+    }
   }
 
-  //  digitalWrite(PULSE_BLINK, LOW);
-  //  delay(50);
-  //  digitalWrite(PULSE_BLINK, HIGH);
-
-
-  //  delay(50);
-
-  //  Serial.print("BPM0: ");
-  //
-
-  //  Serial.print("BPM0: ");
-  //
-  //  Serial.println( newBpm0);
-  //  bpm1 *= 200 * 60;
-  //  // "myBPM" hold this BPM value now.
-  //  stepper1.setSpeed(3000 );
-  currentMillis = millis();
-
-  //  if (currentMillis - previousMillis >= interval) {
-  //    // save the last time you blinked the LED
-  //    previousMillis = currentMillis;
-  //    blinkCount++;
-  //    if (blinkCount > LED_COUNT) {
-  //      blinkCount = 0;
-  //    }
-  //  }
-  //  //  for ( int l = 0; l < LED_COUNT; l++ ) {
-  //
-  //  turnOn(blinkCount);
-  //      delay( 1000 / LED_COUNT );
   //  }
 
   digitalWrite(PERSON_SWITCH_1, HIGH);
-
   digitalWrite(PERSON_SWITCH_2, HIGH);
 
+}
+
+void loop() {
+  currentMillis = millis();
+
+
+
   //  delay(20);
-  pulseSensor.outputSample();
+  //  pulseSensor.outputSample();
   pulseVal = pulseSensor.getLatestSample();
   // Reset the current position to 0 to start a new drawing
   // Check if we're in Pulse Mode or Drawing Mode
   checkMode();
   checkPerson();
+
   if (drawingMode) {
-    Serial.println("Draw Mode Activated");
-    drawImage();
+    if (bpm0 != 0 && bpm1 != 0) {
+      if (newBpm0 != bpm0 || newBpm1 != bpm1) {
+        updateRPM();
+      }
+      drawImage();
+    }
   }
 
   if (pulseMode) {
-    if (!bpmIndex) {
-      if (pulseSensor.sawStartOfBeat() || hitBeat) {
-        pulseSensor.outputBeat();
-        detectBeat(0, 8);
-        hitBeat = false;
+    if (!bpmIndex && !digitalRead(PERSON_SWITCH_1_INPUT)) {
+      if (pulseSensor.sawStartOfBeat() ) {
+        previousMillis = currentMillis;
       }
       bpm0 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
-    } else {
+      lightBeat(0, 8, false) ;
+      lockedBeat1 = bpm0 / 60 * 1000;
+
+
+    } else  if (bpmIndex && !digitalRead(PERSON_SWITCH_2_INPUT)) {
+      if (pulseSensor.sawStartOfBeat() ) {
+        previousMillis = currentMillis;
+      }
       bpm1 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
+      lightBeat(8, 16, false) ;
+      lockedBeat2 = bpm1 / 60 * 1000;
     }
     newBpm0 = bpm0 * 12000L * 2;
-
-    //      updateRPM();
-    //    rotatePulse();
-    //    displayBPM(123);
+    newBpm1 = bpm1 * 12000L * 2;
+  }
+  if (digitalRead(PERSON_SWITCH_1_INPUT)) {
+    if (currentMillis % lockedBeat1 == 0) {
+      previousMillisL1 = currentMillis026;
+      Serial.print("yes!");
+    }
+    lockedBeat(0, 8,  previousMillisL1) ;
+  }
+  if (digitalRead(PERSON_SWITCH_2_INPUT)) {
+    if (currentMillis % lockedBeat2  == 0) {
+      previousMillisL2 = currentMillis;
+    }
+    lockedBeat(8, 16,  previousMillisL2) ;
   }
 }
 
-void detectBeat(int minimum, int maximum) {
-  if (currentMillis - previousMillis >= interval) {
-    // save the last time you blinked the LED
-    previousMillis = currentMillis;
-    blinkCount++;
-    turnOn(blinkCount);
-    if (blinkCount > maximum) {
-      blinkCount = 0;
-      hitBeat = false;
-      return;
-    } else {
-//      detectBeat( minimum + 1, maximum);
-      return;
+void lightBeat(int minimum, int maximum, bool locked) {
+  for (int i = minimum; i < maximum; i++) {
+    if (currentMillis - previousMillis >= interval * i) {
+      turnOn(i);
+    }
 
+  }
+}
+
+void lockedBeat(int minimum, int maximum, long unsigned int mills) {
+  for (int i = minimum; i < maximum; i++) {
+    if (i % 2 == 1) {
+      if (currentMillis - mills >= interval * i) {
+        turnOn(i);
+      }
     }
   }
-
-
 }
 
 void drawImage() {
   //    stepper1.setAcceleration(60 / 10);
   //    stepper1.setSpeed(11760);
-  if (stepper1.distanceToGo() == 0)
-    stepper1.setCurrentPosition(0);
+  if (stepper1.distanceToGo() <= 0) stepper1.setCurrentPosition(0);
+  if (stepper2.distanceToGo() <= 0) stepper2.setCurrentPosition(0);
 
-  if (stepper2.distanceToGo() == 0)
-    stepper2.setCurrentPosition(0);
-  //    Serial.print("RUnning");
   stepper1.run();
   stepper2.run();
 
-  //  delay(20);
-
+  Serial.print("Stepper 1 RPM: "); Serial.print(newBpm0); Serial.print(" ||| "); Serial.print("Dist to go: "); Serial.print(stepper1.distanceToGo());
+  Serial.print("  Stepper 2 RPM: "); Serial.print(newBpm1); Serial.print(" ||| "); Serial.print("Dist to go: "); Serial.println(stepper2 .distanceToGo());
 }
 
 void updateRPM() {
+  lcm = getLCM( newBpm0,  newBpm1) * 200 / 6;
 
   stepper1.setSpeed(newBpm0);
   stepper1.setAcceleration(100);
-  stepper1.moveTo(lcm * 200 / 6);
+  stepper1.moveTo(lcm);
   delay(5);
   //set max speed to bpm since speed is set to rpm
   stepper2.setSpeed(newBpm1);
   stepper2.setAcceleration(100);
-  stepper2.moveTo(lcm * 200 / 6);
-
+  stepper2.moveTo(lcm);
   delay(5);
 }
 
 int getLCM(int n1, int n2)
 {
   int i, gcd, lcm;
-
 
   for (i = 1; i <= n1 && i <= n2; ++i)
   {
@@ -312,24 +288,4 @@ int getLCM(int n1, int n2)
   printf(lcm);
   return lcm;
 }
-
-
-
-
-void  checkPerson() {
-  //if the input is receiving voltage, mark as pulse mode
-  if (digitalRead(PERSON_SWITCH_1_INPUT) == 0) {
-    bpmIndex = false;
-    //        Serial.println("Person 1");
-  } else {
-    bpmIndex = true;
-    //        Serial.println("Person 2");
-  }
-}
-
-
-//drive shaft
-//stepper mount
-//shaft coupler
-//mounting hub?
 
