@@ -1,6 +1,6 @@
 # Mechanical Hemmer-O-Graph
 ## Museum: Hirshhorn
-## Activitiy: Maker Mornings
+## Activity: Maker Mornings
 
 ## Project:
 Creating a Public Engagement activity to explain the technology used in Raphael Lozano-Hemmer's <i>Pulse</i>
