@@ -36,14 +36,11 @@ void reset() {
 
 void checkMode() {
   //if the input is receiving voltage, mark as pulse mode
-  if (digitalRead(MODE_SWITCH)) {
-    pulseMode = true;
-    drawingMode = false;
-//    Serial.println("Pulse");
-  } else if (digitalRead(!MODE_SWITCH) && digitalRead(PERSON_SWITCH_1_INPUT) && digitalRead(PERSON_SWITCH_2_INPUT)) {
+if (!digitalRead(MODE_SWITCH) && digitalRead(PERSON_SWITCH_1_INPUT) && digitalRead(PERSON_SWITCH_2_INPUT)) {
     pulseMode = false;
     drawingMode = true;
 //    Serial.println("Draw");
+
   } else {
     pulseMode = true;
     drawingMode = false;
@@ -53,7 +50,7 @@ void checkMode() {
 
 void checkPerson() {
   //if the input is receiving voltage, mark as pulse mode
-  if (digitalRead(PERSON_SWITCH_1_INPUT) == 0) {
+  if (!digitalRead(PERSON_SWITCH_1_INPUT)) {
     bpmIndex = false; // Serial.println("Person 1");
   } else {
     bpmIndex = true;  // Serial.println("Person 2");

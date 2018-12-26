@@ -72,7 +72,7 @@ unsigned long currentMillis;
 byte pins[] = {5, 6, 9, 10, 11};
 
 int currentLed1 = 0;
-int currentLed2 = 0;
+int currentLed2 = 2;
 
 //initialize object
 Charlieplex charlieplex = Charlieplex(pins, NUMBER_OF_PINS, 0);
@@ -100,8 +100,8 @@ const int PWM4 = 10;
 const int PWM5 = 11;
 const long interval = 10;
 
-long unsigned int lockedBeat1 = 60;
-long unsigned int  lockedBeat2 = 60;
+long unsigned int lockedBeat1 = 0;
+long unsigned int  lockedBeat2 = 0;
 
 // you can change these to DOUBLE or INTERLEAVE or MICROSTEP!
 // wrappers for the first motor!
@@ -191,42 +191,59 @@ void loop() {
   //  If middle switch is up/unlit, start drawing
   if (drawingMode) {
     if (bpm1 != 0 && bpm2 != 0) {
-      //      drawImage();
+      Serial.println("drawMode");
+      drawImage();
       drawnBeat(person1Array, lockedBeat1, previousMillisL1);
       drawnBeat(person2Array, lockedBeat2, previousMillisL2);
     }
   }
-  Signal = analogRead(PULSE_INPUT);
-  //      Serial.println(Signal);                    // Send the Signal value to Serial Plotter.
 
   if (pulseMode) {
+    Signal = analogRead(PULSE_INPUT);
+
     if (!bpmIndex && !digitalRead(PERSON_SWITCH_1_INPUT)) {
       //      Serial.println("P1");
+      if (!digitalRead(PERSON_SWITCH_2_INPUT)) {
+        charlieplex.charlieWrite(leds[16], 255, 16);
+        charlieplex.charlieWrite(leds[17], 255, 17);
+        charlieplex.clear();
+      }
+
+      if (Signal > 30) {
+        charlieplex.charlieWrite(leds[10], map(Signal, 0, THRESHOLD, 0, 255), 10);
+        charlieplex.clear();
+      }
+
       if (Signal > THRESHOLD) {                        // If the signal is above "550", then "turn-on" Arduino's on-Board LED.
-        Serial.println(Signal);
         lightBeat(person1Array);
+      } else {
+        charlieplex.charlieWrite(leds[11], 255, 11);
+        charlieplex.clear();
       }
+
       bpm1 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
-      lockedBeat1 = bpm1;// / 60 * 1000;
-
+      lockedBeat1 = int(60.0 / float(bpm1) * 1000.0); //Convert the bpm1 to seconds, multiply by 1000 to do a module equation with the elapsed milliseconds
     } else if (bpmIndex && digitalRead(PERSON_SWITCH_1_INPUT) && !digitalRead(PERSON_SWITCH_2_INPUT)) {
-      //      Serial.println("P2");
-      if (Signal > THRESHOLD) {                        // If the signal is above "550", then "turn-on" Arduino's on-Board LED.
+      if (!digitalRead(PERSON_SWITCH_1_INPUT)) charlieplex.charlieWrite(leds[10], 255, 10);
 
-        Serial.println(Signal);
-
-        lightBeat(person2Array);
+      if (Signal > 30) {
+        charlieplex.charlieWrite(leds[17], map(Signal, 0, THRESHOLD, 0, 255), 17);
+        charlieplex.clear();
       }
+
+      if (Signal > THRESHOLD) {                        // If the signal is above "550", then "turn-on" Arduino's on-Board LED.
+        lightBeat(person2Array);
+      } else {
+        charlieplex.charlieWrite(leds[16], 255, 16);
+        charlieplex.clear();
+      }
+
       bpm2 = int(pulseSensor.getBeatsPerMinute());  // Calls function on our pulseSensor object that returns BPM as an "int".
-      lockedBeat2 = bpm2;// / 60 * 1000;
-      playLockedBeats();
-      //      updateRPM();
+      lockedBeat2 = int(60.0 / float(bpm2) * 1000.0);
     }
   }
-  //
-  Serial.print(bpm1);
-  Serial.print("  ::::  ");
-  Serial.println(bpm2);
+  updateRPM();
+  playLockedBeats();
 }
 
 void beat(int currentLED, int * personArray) {
@@ -237,28 +254,36 @@ void beat(int currentLED, int * personArray) {
 
 void playLockedBeats() {
   if (digitalRead(PERSON_SWITCH_1_INPUT)) {
+    charlieplex.charlieWrite(leds[10], 255, 10);
+
     if (millis() % lockedBeat1 == 0) {
-      if (currentLed1 % 2 == 0) {
-        beat(currentLed1, person1Array);
+      for (int i = 0; i < sizeof(person1Array) / 2; i += 2) {
+        int index = person1Array[i];
+        charlieplex.charlieWrite(leds[ i], 255, i);
       }
-      currentLed1++;
+      charlieplex.clear();
     } else {
-      if (currentLed1 % 2 == 0) {
-        beat(currentLed1, person1Array);
-      }
+      //      if (currentLed1 % 2 == 0) {
+      //        beat(currentLed1, person1Array);
+      //      }
     }
   }
 
   if (digitalRead(PERSON_SWITCH_2_INPUT)) {
+    charlieplex.charlieWrite(leds[17], 255, 17);
+
     if (millis() % lockedBeat2 == 0) {
-      if (currentLed2 % 2 == 0) {
-        beat(currentLed2, person2Array);
+      //      if (currentLed2 % 2 == 0) {
+      //        beat(2, person2Array);
+      //      }
+      //      currentLed2++;
+      for (int i = 0; i < sizeof(person2Array) / 2; i += 2) {
+        int index = person2Array[i];
+        charlieplex.charlieWrite(leds[ i], 255, i);
       }
-      currentLed2++;
+      charlieplex.clear();
     } else {
-      if (currentLed2 % 2 == 0) {
-        beat(currentLed2, person2Array);
-      }
+
     }
   }
 
@@ -275,12 +300,12 @@ void lightBeat(int personArray[]) {
   charlieplex.clear();
 
   int mycount = 20;
-  for (int i = 1; i < sizeof(person1Array) / 2; i++) {
-    if (i  %  2 == 1) {
-      int index = personArray[i];
-      charlieplex.charlieWrite(leds[index], 255, index);
-      charlieplex.clear();
-    }
+  for (int i = 1; i < sizeof(person1Array) / 2; i += 2) {
+    //    if (i  %  2 == 1) {
+    int index = personArray[i];
+    charlieplex.charlieWrite(leds[index], 255, index);
+    charlieplex.clear();
+    //    }
   }
 }
 
@@ -329,7 +354,7 @@ void updateRPM() {
   stepper1.moveTo(lcm);
   stepper1.setSpeed(bpm1 );
 
-  delay(5);
+  //  delay(1);
 
   //set max speed to bpm since speed is set to rpm
   stepper2.setAcceleration(stepperbpm2);
@@ -337,6 +362,6 @@ void updateRPM() {
   stepper2.moveTo(lcm);
   stepper2.setSpeed(bpm2);
 
-  delay(5);
+  //  delay(1);
 }
 
